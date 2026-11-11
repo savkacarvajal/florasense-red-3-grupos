@@ -18,7 +18,7 @@ Usen **exactamente estos nombres**. Valen para el sketch, para `crear-red.sh` y 
 El dashboard separa los datos de cada grupo **por el nombre del nodo**: todo lo que empieza con `grupo-1` es del grupo 1.
 Por eso el nombre se respeta al pie de la letra.
 
-> **Pendiente:** acordar cuál de las 3 Raspberry es el **HUB** (ver [qué es el hub](#qué-es-el-hub)).
+> **El HUB va en AWS** ([sección 3, opción A](#opción-a-hub-en-aws-recomendado)). Así ninguna Raspberry tiene que hacer de hub.
 
 ---
 
@@ -49,10 +49,10 @@ Por eso el nombre se respeta al pie de la letra.
 
 ### Qué es el hub
 
-El hub es **una de las 3 Raspberry, que hace de punto de encuentro**, como un grupo de WhatsApp.
+El hub es **el punto de encuentro** de los 3 grupos, como un grupo de WhatsApp.
 En vez de conectar cada grupo con los otros dos (3 conexiones), todos se conectan solo al hub (1 conexión cada uno).
-**No es un aparato extra:** la Raspberry del hub sigue siendo la de su grupo, con su malla y su dashboard.
-Solo necesita estar **prendida** y con **IP fija**.
+Va en **una EC2 de AWS** con IP fija. También puede ir en una de las Raspberry (opción B), pero entonces esa Raspberry tiene que estar
+siempre prendida, y los otros grupos tienen que estar en su misma red.
 
 **Quién hace qué:**
 
@@ -61,7 +61,7 @@ Solo necesita estar **prendida** y con **IP fija**.
 | Cada grupo | Crea su clave y la pega en el sketch | [1](#1-parte-a-los-2-nodos-de-cada-grupo) |
 | Cada grupo | Sube el sketch a sus 2 nodos | [1](#1-parte-a-los-2-nodos-de-cada-grupo) |
 | Cada grupo | Sube el sketch a su concentrador, lo enchufa a su Raspberry y abre el dashboard | [2](#2-parte-a-el-concentrador-y-el-dashboard-de-cada-grupo) |
-| Solo el dueño del HUB | Corre `crear-red.sh` y reparte los paquetes | [3](#3-parte-b-la-raspberry-hub-solo-un-grupo) |
+| Solo una persona | Crea el HUB (en AWS o en una Raspberry) y reparte los paquetes | [3](#3-parte-b-el-hub) |
 | Cada grupo | Instala su paquete en su Raspberry | [4](#4-parte-b-la-raspberry-de-cada-grupo) |
 | Todos | Abren el dashboard compartido | [5](#5-ver-el-dashboard-compartido) |
 
@@ -163,7 +163,37 @@ Más detalles en el README del repo privado `florasense-dashboard-malla`.
 
 ---
 
-## 3. PARTE B: la Raspberry HUB (solo un grupo)
+## 3. PARTE B: el HUB
+
+El hub puede ir en **la nube (AWS, recomendado)** o en una de las Raspberry. Haz **solo una** de las dos opciones.
+
+### Opción A: hub en AWS (recomendado)
+
+Con esta opción las Raspberry **no necesitan estar en la misma red**: se conectan al hub por internet, y el dashboard
+compartido se abre desde cualquier lado. Lo hace **una sola persona** con su AWS Academy Learner Lab:
+
+1. Abre el Learner Lab → **Start Lab** → espera el punto verde → entra a **AWS**.
+2. Arriba a la derecha, abre **CloudShell** (el ícono `>_`). La región tiene que ser **us-east-1 (N. Virginia)**.
+3. Pega esto:
+   ```bash
+   git clone https://github.com/savkacarvajal/florasense-red-3-grupos.git
+   bash florasense-red-3-grupos/red-grupos/aws/desplegar.sh
+   ```
+4. Espera unos **6 a 8 minutos**. Al final te muestra la IP del hub y la URL `https://<IP>:9443`.
+5. Descarga los paquetes: en CloudShell, **Actions → Download file** → `/home/cloudshell-user/paquetes-hub.zip`.
+6. A cada grupo le das **solo su carpeta** `paquetes-hub/<grupo>/` y a todos la clave de `panel` (está en `credenciales.txt`). Después sigue con la [sección 4](#4-parte-b-la-raspberry-de-cada-grupo).
+
+Lo que crea en AWS (archivo [`red-grupos/aws/hub.yaml`](red-grupos/aws/hub.yaml)):
+- Una EC2 `t3.micro` Ubuntu con Docker y el mismo Mosquitto del hub.
+- Una **IP elástica**, que **no cambia** aunque el lab se apague. Por eso los certificados siguen sirviendo.
+- Un security group con **solo los puertos 8884 y 9443** abiertos. **No tiene SSH**: se administra por SSM.
+
+> - Cuando el Learner Lab se apaga, la EC2 se detiene y **el hub deja de funcionar**. Al volver a hacer *Start Lab*, arranca solo.
+> - Para volver a bajar los paquetes: `bash florasense-red-3-grupos/red-grupos/aws/paquetes.sh`.
+> - Para borrar todo: `bash florasense-red-3-grupos/red-grupos/aws/destruir.sh`. Al volver a crearlo cambia la IP y hay que repartir paquetes nuevos.
+> - Algunas redes (como el WiFi de la universidad) bloquean el puerto 8884 hacia afuera. Si el puente no conecta, prueba con el hotspot del celular.
+
+### Opción B: hub en una Raspberry (solo un grupo)
 
 **Antes de empezar:**
 - [ ] Acordaron **cuál Raspberry es el HUB**.

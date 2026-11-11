@@ -20,12 +20,18 @@
     luz: ["Luz", "lx", 0],
     lux: ["Luz", "lx", 0],
     rssi: ["Señal WiFi", "dBm", 0],
+    // campos de malla_espnow.ino
+    temp: ["Temperatura", "°C", 1],
+    hum_aire: ["Humedad aire", "%", 0],
+    suelo_raw: ["Suelo (ADC)", "", 0],
+    flujo_lmin: ["Flujo de agua", "L/min", 2],
+    vecinos: ["Vecinos en la malla", "", 0],
   };
   const ESTADOS = {
     pumpOn: ["Bomba", "encendida", "apagada"], bomba: ["Bomba", "encendida", "apagada"],
     fanOn: ["Ventilador", "encendido", "apagado"], ventilador: ["Ventilador", "encendido", "apagado"],
   };
-  const IGNORAR = new Set(["version", "payloadVersion", "deviceId", "ts", "timestamp"]);
+  const IGNORAR = new Set(["version", "payloadVersion", "deviceId", "ts", "timestamp", "v", "boot", "seq", "up", "esp", "riego_s", "conc", "fw", "est"]);
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => {
@@ -154,6 +160,7 @@
       for (const [k, v] of Object.entries(aplanar(datos))) {
         if (IGNORAR.has(k)) continue;
         if (typeof v === "boolean") d.estados.set(k, v);
+        else if (k === "bomba" && (v === 0 || v === 1)) d.estados.set(k, v === 1);   // la malla manda la bomba como 0/1
         else if (typeof v === "number" && Number.isFinite(v)) {
           let serie = d.metricas.get(k);
           if (!serie) { serie = []; d.metricas.set(k, serie); }
