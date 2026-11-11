@@ -1,7 +1,7 @@
 # Conectividad entre los 3 grupos: guía a prueba de tontos
 
 Esta guía sirve para que **cada grupo junte los datos de sus placas en su propia Raspberry**, los **guarde en local**
-y los **suba cifrados a AWS**, donde se ven los 3 grupos juntos. Ve paso por paso, en orden, sin saltarte nada.
+y los **suba cifrados a AWS**. Cada grupo ve sus datos en el dashboard de su Raspberry. Ve paso por paso, en orden, sin saltarte nada.
 Si algo falla, busca el síntoma en [Si algo falla](#si-algo-falla).
 
 ## Los grupos
@@ -57,7 +57,7 @@ Por eso el nombre se respeta al pie de la letra.
 | Cada grupo | Sube el sketch a su concentrador, lo enchufa a su Raspberry y abre el dashboard | [2](#2-parte-a-el-concentrador-y-el-dashboard-de-cada-grupo) |
 | Solo una persona | Crea la nube en AWS y reparte los paquetes | [3](#3-parte-b-la-nube-aws-solo-una-persona) |
 | Cada grupo | Conecta su Raspberry a la nube con su paquete | [4](#4-parte-b-conectar-tu-raspberry-a-la-nube) |
-| Todos | Abren el dashboard de la nube | [5](#5-el-dashboard-de-la-nube) |
+| Solo el grupo de Savka | Abre el dashboard de la nube | [5](#5-el-dashboard-de-la-nube) |
 
 ---
 
@@ -165,7 +165,8 @@ Lo hace **una sola persona** desde su AWS Academy Learner Lab. El código es pri
    ```
 5. Espera unos **8 a 10 minutos**. Al final muestra la URL `https://<IP>`.
 6. **Actions → Download file** → `/home/cloudshell-user/paquetes-nube.zip`.
-7. A cada grupo le das **solo su carpeta** `paquetes-nube/<grupo>/`, y a todos el usuario y la clave de `panel.txt`.
+7. A cada grupo le das **solo su carpeta** `paquetes-nube/<grupo>/`. Con ella su Raspberry **sube** datos, pero no puede ver el panel.
+   **`panel.txt` no se comparte**: el dashboard de la nube es solo del grupo de Savka.
 
 Lo que crea en AWS:
 - **S3** cifrado con **AES-256**, sin acceso público y solo por HTTPS. Ahí queda cada lote en `lecturas/fecha=AAAA-MM-DD/grupo=<grupo>/`.
@@ -200,7 +201,7 @@ Lo que crea en AWS:
 
 1. Abre **`https://<IP_de_AWS>`** desde cualquier lugar con internet.
 2. El navegador va a decir **"conexión no segura"**. Es normal: el certificado lo firmó la CA propia de la nube. Entra en *Avanzado → Continuar*.
-3. Usuario y clave de `panel.txt`.
+3. Usuario y clave de `panel.txt`. **Es privado**: solo lo tiene el grupo de Savka.
 4. Arriba ves si la **Raspberry de cada grupo está en línea**. Los filtros son los mismos de la Raspberry: grupo, nodo y solo activos.
 
 **Lo que protege la nube** (probado):
