@@ -1,0 +1,40 @@
+MALLA ESP-NOW - INVERNADERO IoT
+================================
+Este .ino convierte tu placa en un "nodo de invernadero": mide (datos simulados), cifra los datos
+y los manda por radio (ESP-NOW) a otras placas, hasta llegar al concentrador conectado al PC.
+No usa WiFi ni router. Tu invernadero aparece solo en el dashboard.
+
+LO QUE NECESITAS
+  - Una placa NodeMCU / ESP8266 (NO sirve ESP32) y un cable USB de datos.
+  - Arduino IDE.
+
+PASO A PASO
+ 1) Descomprime este zip. Deja la carpeta "malla_espnow" con ese nombre (Arduino lo exige).
+ 2) En Arduino IDE: Herramientas > Placa > Gestor de tarjetas. Busca "esp8266" e instala
+    "esp8266 by ESP8266 Community", version 3.1.2 (esa version exacta).
+ 3) Abre malla_espnow\malla_espnow.ino
+ 4) Herramientas:
+      Placa  : NodeMCU 1.0 (ESP-12E Module)
+      Puerto : el de tu placa (si no aparece ninguno, instala el driver CH340 o CP2102)
+ 5) Arriba del archivo hay DOS lineas que importan:
+      #define NOMBRE_NODO  ""     <-- pon el nombre de tu grupo, por ejemplo:  "grupo-2"
+      #define PERFIL 0            <-- dejalo en 0
+    El nombre debe ser DISTINTO en cada placa (grupo-1, grupo-2, grupo-3...). Solo letras, numeros, - y _.
+    Ese nombre es el que aparecera en el dashboard. Si lo dejas vacio, se pone uno automatico (nodo-xxxxxx).
+    NO cambies nada mas (ni CANAL, ni la clave).
+ 6) Pulsa Subir (flecha). Espera "Hecho".
+ 7) Opcional: Herramientas > Monitor Serie a 115200 baudios. Debe decir:
+      === Malla ESP-NOW · nodo de invernadero (solo radio) ===
+      solo radio en el canal 6 ...
+ 8) Alimenta la placa (USB o cargador) y dejala cerca de otra placa o del concentrador.
+    En unos 10 segundos tu invernadero aparece en el dashboard (Raspberry Pi), con el nombre que elegiste.
+
+SI NO FUNCIONA
+  - No compila: la version del core no es 3.1.2, o la placa es un ESP32.
+  - Monitor Serie dice "sin respuesta ... reintento": el concentrador o el servidor no estan encendidos,
+    o estas fuera de su alcance. Acercate o enciende otra placa en medio (cada placa retransmite).
+  - Todas las placas deben usar el MISMO archivo y el MISMO CANAL (6).
+
+IMPORTANTE
+  - No compartas claves ni archivos .pem. Este archivo solo trae la clave PUBLICA del servidor.
+  - Los datos son SIMULADOS (temperatura, humedad, suelo, flujo de agua): no hay sensores conectados.

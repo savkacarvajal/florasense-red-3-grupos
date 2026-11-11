@@ -1,0 +1,29 @@
+# Puente MQTT del grupo "__GRUPO__" hacia el hub de la red (__HUB__).
+# Va en el Mosquitto LOCAL de la Raspberry del grupo, al final de su mosquitto.conf
+# (o en un include_dir). Reenvía la telemetría del grupo al hub, cifrada con TLS.
+# Este archivo tiene la clave del puente: NO subirlo a git.
+
+connection red-grupos-__GRUPO__
+address __HUB__:8884
+remote_clientid puente-__GRUPO__
+remote_username __GRUPO__
+remote_password __CLAVE__
+
+# TLS: se valida el certificado del hub con la CA de la red.
+# Ruta dentro del contenedor (Docker). Con Mosquitto instalado por apt usa /etc/mosquitto/red-grupos/ca.crt
+bridge_cafile /mosquitto/config/red-grupos/ca.crt
+bridge_tls_version tlsv1.2
+bridge_insecure false
+
+cleansession true
+restart_timeout 5 30
+# El hub publica aquí 1 (puente arriba) o 0 (puente caído); el dashboard lo muestra.
+notifications true
+notification_topic red/__GRUPO__/_puente/estado
+
+# ---- Qué tópicos se mandan al hub (solo salida, "out") ----
+# Formato: topic <patrón> out <qos> <prefijo_local> <prefijo_en_el_hub>
+# FloraSense: iot/v1/devices/<id>/telemetry  ->  red/__GRUPO__/<id>/telemetry
+topic +/telemetry out 1 iot/v1/devices/ red/__GRUPO__/
+# Si tu grupo usa otros tópicos, cambia la línea de arriba. Ejemplo para "sensores/<algo>":
+# topic # out 1 sensores/ red/__GRUPO__/

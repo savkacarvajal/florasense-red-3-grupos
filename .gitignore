@@ -1,0 +1,4 @@
+red-grupos/salida/
+*.pem
+*.key
+config_local.h
