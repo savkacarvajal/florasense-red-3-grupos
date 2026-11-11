@@ -1,12 +1,12 @@
 # Conectividad entre los 3 grupos: guía a prueba de tontos
 
-Esta guía sirve para que **cada grupo junte los datos de sus placas en su propia Raspberry** y
-para que **las 3 Raspberry compartan los datos entre ellas**. Ve paso por paso, en orden, sin saltarte nada.
+Esta guía sirve para que **cada grupo junte los datos de sus placas en su propia Raspberry**, los **guarde en local**
+y los **suba cifrados a AWS**, donde se ven los 3 grupos juntos. Ve paso por paso, en orden, sin saltarte nada.
 Si algo falla, busca el síntoma en [Si algo falla](#si-algo-falla).
 
 ## Los grupos
 
-Usen **exactamente estos nombres**. Valen para el sketch, para `crear-red.sh` y para el dashboard.
+Usen **exactamente estos nombres**. Valen para el sketch, para la Raspberry y para la nube.
 **Todas las placas de los 3 grupos van en el canal 6**, que es el que trae el sketch.
 
 | Grupo | Integrante de referencia | Nombre del grupo | Nodo 1 | Nodo 2 |
@@ -18,7 +18,7 @@ Usen **exactamente estos nombres**. Valen para el sketch, para `crear-red.sh` y 
 El dashboard separa los datos de cada grupo **por el nombre del nodo**: todo lo que empieza con `grupo-1` es del grupo 1.
 Por eso el nombre se respeta al pie de la letra.
 
-> **El HUB va en AWS** ([sección 3, opción A](#opción-a-hub-en-aws-recomendado)). Así ninguna Raspberry tiene que hacer de hub.
+> La nube (AWS) la crea **una sola persona**. Los otros grupos solo reciben su paquete ([sección 3](#3-parte-b-la-nube-aws-solo-una-persona)).
 
 ---
 
@@ -35,24 +35,18 @@ Por eso el nombre se respeta al pie de la letra.
    Todo en el canal 6. Cada grupo cifra con SU clave: el concentrador de otro grupo
    puede retransmitir tus datos, pero no puede leerlos.
 
- PARTE B: ENTRE los 3 grupos (por la red, MQTT con TLS)
- ───────────────────────────────────────────────────────
-   Raspberry grupo-1 ─┐
-   Raspberry grupo-2 ─┼──── cifrado TLS, puerto 8884 ────► Raspberry HUB
-   Raspberry grupo-3 ─┘                                       │
-                                                              └── dashboard compartido https://IP_DEL_HUB:9443
+ PARTE B: de cada Raspberry a la NUBE (AWS)
+ ─────────────────────────────────────────
+   Raspberry grupo-1 ─┐   cada 5 s, lote cifrado con la CLAVE PÚBLICA de AWS
+   Raspberry grupo-2 ─┼── (RSA-OAEP + AES-256-GCM) por HTTPS ──► EC2 en AWS ──► S3 (cifrado AES-256)
+   Raspberry grupo-3 ─┘                                            │  descifra con la clave PRIVADA de AWS
+                                                                   └── dashboard de los 3 grupos (https://<IP>)
+   Cada Raspberry además guarda todo en local (datos/AAAA-MM-DD.jsonl). Si se corta internet,
+   sigue guardando y lo sube cuando vuelve.
 ```
 
-- **Parte A** = carpeta [`malla_espnow/`](malla_espnow/) (el sketch) + la pasarela y el dashboard que corren en la Raspberry,
-  que están en el repo **privado** `florasense-dashboard-malla` (pídele acceso a Savka).
-- **Parte B** = carpeta [`red-grupos/`](red-grupos/).
-
-### Qué es el hub
-
-El hub es **el punto de encuentro** de los 3 grupos, como un grupo de WhatsApp.
-En vez de conectar cada grupo con los otros dos (3 conexiones), todos se conectan solo al hub (1 conexión cada uno).
-Va en **una EC2 de AWS** con IP fija. También puede ir en una de las Raspberry (opción B), pero entonces esa Raspberry tiene que estar
-siempre prendida, y los otros grupos tienen que estar en su misma red.
+- **Parte A** = carpeta [`malla_espnow/`](malla_espnow/) (el sketch).
+- **Lo que corre en la Raspberry y en AWS** está en el repo **privado** `florasense-dashboard-malla` (pídele acceso a Savka).
 
 **Quién hace qué:**
 
@@ -61,9 +55,9 @@ siempre prendida, y los otros grupos tienen que estar en su misma red.
 | Cada grupo | Crea su clave y la pega en el sketch | [1](#1-parte-a-los-2-nodos-de-cada-grupo) |
 | Cada grupo | Sube el sketch a sus 2 nodos | [1](#1-parte-a-los-2-nodos-de-cada-grupo) |
 | Cada grupo | Sube el sketch a su concentrador, lo enchufa a su Raspberry y abre el dashboard | [2](#2-parte-a-el-concentrador-y-el-dashboard-de-cada-grupo) |
-| Solo una persona | Crea el HUB (en AWS o en una Raspberry) y reparte los paquetes | [3](#3-parte-b-el-hub) |
-| Cada grupo | Instala su paquete en su Raspberry | [4](#4-parte-b-la-raspberry-de-cada-grupo) |
-| Todos | Abren el dashboard compartido | [5](#5-ver-el-dashboard-compartido) |
+| Solo una persona | Crea la nube en AWS y reparte los paquetes | [3](#3-parte-b-la-nube-aws-solo-una-persona) |
+| Cada grupo | Conecta su Raspberry a la nube con su paquete | [4](#4-parte-b-conectar-tu-raspberry-a-la-nube) |
+| Todos | Abren el dashboard de la nube | [5](#5-el-dashboard-de-la-nube) |
 
 ---
 
@@ -148,130 +142,71 @@ El concentrador es la **tercera NodeMCU** del grupo. **Escucha la malla** y le p
 ### Los filtros del dashboard
 
 - **Grupo:** Todos, `grupo-1`, `grupo-2` o `grupo-3`. Cada grupo tiene su color en las tarjetas y en la tabla.
-- **Origen:** *Malla (radio)* son tus placas. *Otros grupos (hub)* son los datos que llegan por la Parte B.
 - **Nodo:** busca por nombre (ej: `grupo-1-b`). También puedes marcar *Solo activos* para esconder nodos apagados.
 - El dashboard recuerda los filtros que dejaste la última vez.
+- En la Raspberry ves **tus** nodos. Los 3 grupos juntos se ven en el [dashboard de la nube](#5-el-dashboard-de-la-nube).
 
-Para ver también a los **otros grupos** en tu dashboard, conecta tu Raspberry al hub (Parte B) y arranca con `--mqtt`:
-```bash
-node servidor.mjs --grupo grupo-3 --serie /dev/ttyUSB0 --mqtt
-```
-Así tus datos salen al hub y los de los otros llegan a tu dashboard. Usa `mosquitto_pub` y `mosquitto_sub` del paquete `mosquitto-clients`.
+Cada lectura queda guardada en la Raspberry, en `florasense-dashboard-malla/datos/AAAA-MM-DD.jsonl` (un archivo por día).
 
 **¿Probar sin placas?** `node claves.mjs && node simulador.mjs grupo-3` y abre `http://localhost:3100`.
-Más detalles en el README del repo privado `florasense-dashboard-malla`.
 
 ---
 
-## 3. PARTE B: el HUB
+## 3. PARTE B: la nube AWS (solo una persona)
 
-El hub puede ir en **la nube (AWS, recomendado)** o en una de las Raspberry. Haz **solo una** de las dos opciones.
+Lo hace **una sola persona** desde su AWS Academy Learner Lab. El código es privado, así que se sube a CloudShell como archivo:
 
-### Opción A: hub en AWS (recomendado)
-
-Con esta opción las Raspberry **no necesitan estar en la misma red**: se conectan al hub por internet, y el dashboard
-compartido se abre desde cualquier lado. Lo hace **una sola persona** con su AWS Academy Learner Lab:
-
-1. Abre el Learner Lab → **Start Lab** → espera el punto verde → entra a **AWS**.
-2. Arriba a la derecha, abre **CloudShell** (el ícono `>_`). La región tiene que ser **us-east-1 (N. Virginia)**.
-3. Pega esto:
+1. En el PC, dentro de `florasense-dashboard-malla`: `bash nube/empaquetar.sh` → crea `~/Descargas/nube-aws.tar.gz`.
+2. Learner Lab → **Start Lab** → espera el punto verde → **AWS** → abre **CloudShell** (`>_`). La región tiene que ser **us-east-1**.
+3. En CloudShell: **Actions → Upload file** → `nube-aws.tar.gz`.
+4. Pega:
    ```bash
-   git clone https://github.com/savkacarvajal/florasense-red-3-grupos.git
-   bash florasense-red-3-grupos/red-grupos/aws/desplegar.sh
+   tar xzf nube-aws.tar.gz && bash nube/desplegar.sh
    ```
-4. Espera unos **6 a 8 minutos**. Al final te muestra la IP del hub y la URL `https://<IP>:9443`.
-5. Descarga los paquetes: en CloudShell, **Actions → Download file** → `/home/cloudshell-user/paquetes-hub.zip`.
-6. A cada grupo le das **solo su carpeta** `paquetes-hub/<grupo>/` y a todos la clave de `panel` (está en `credenciales.txt`). Después sigue con la [sección 4](#4-parte-b-la-raspberry-de-cada-grupo).
+5. Espera unos **8 a 10 minutos**. Al final muestra la URL `https://<IP>`.
+6. **Actions → Download file** → `/home/cloudshell-user/paquetes-nube.zip`.
+7. A cada grupo le das **solo su carpeta** `paquetes-nube/<grupo>/`, y a todos el usuario y la clave de `panel.txt`.
 
-Lo que crea en AWS (archivo [`red-grupos/aws/hub.yaml`](red-grupos/aws/hub.yaml)):
-- Una EC2 `t3.micro` Ubuntu con Docker y el mismo Mosquitto del hub.
-- Una **IP elástica**, que **no cambia** aunque el lab se apague. Por eso los certificados siguen sirviendo.
-- Un security group con **solo los puertos 8884 y 9443** abiertos. **No tiene SSH**: se administra por SSM.
+Lo que crea en AWS:
+- **S3** cifrado con **AES-256**, sin acceso público y solo por HTTPS. Ahí queda cada lote en `lecturas/fecha=AAAA-MM-DD/grupo=<grupo>/`.
+- **EC2** `t3.micro`. Ahí se crea la **clave privada de AWS**, que **nunca sale** de la máquina. También corre el receptor y el dashboard.
+- **IP elástica**, que no cambia aunque el lab se apague.
+- **Security group con solo el 443 abierto**, sin SSH. Se administra por SSM.
 
-> - Cuando el Learner Lab se apaga, la EC2 se detiene y **el hub deja de funcionar**. Al volver a hacer *Start Lab*, arranca solo.
-> - Para volver a bajar los paquetes: `bash florasense-red-3-grupos/red-grupos/aws/paquetes.sh`.
-> - Para borrar todo: `bash florasense-red-3-grupos/red-grupos/aws/destruir.sh`. Al volver a crearlo cambia la IP y hay que repartir paquetes nuevos.
-> - Algunas redes (como el WiFi de la universidad) bloquean el puerto 8884 hacia afuera. Si el puente no conecta, prueba con el hotspot del celular.
-
-### Opción B: hub en una Raspberry (solo un grupo)
-
-**Antes de empezar:**
-- [ ] Acordaron **cuál Raspberry es el HUB**.
-- [x] Los nombres de los grupos son `grupo-1`, `grupo-2` y `grupo-3`.
-
-La Raspberry HUB necesita:
-- [ ] **Docker** instalado (`docker --version` responde).
-- [ ] Una **IP fija**: resérvala en el router o hotspot. **La IP queda grabada en el certificado**, así que si cambia hay que rehacer todo.
-- [ ] Los puertos **8884** y **9443** abiertos para los demás.
-
-Pasos:
-```bash
-git clone https://github.com/savkacarvajal/florasense-red-3-grupos.git
-cd florasense-red-3-grupos/red-grupos
-hostname -I                                          # anota la IP de esta Raspberry
-./crear-red.sh <IP_DEL_HUB> grupo-1 grupo-2 grupo-3 # en este orden: fija el color de cada grupo
-docker compose up -d
-```
-
-Opcional: para que el dashboard compartido muestre nombres más claros, edita `dashboard/config.js`
-(por ejemplo `nombre: "Grupo 1 · Martín Díaz"`). **No cambies el `id`.**
-
-Esto crea la carpeta `salida/`. **Nunca la subas a GitHub** (ya está en `.gitignore`):
-
-| Archivo | Qué hacer con él |
-|---|---|
-| `salida/paquetes/<grupo>/` | A **cada grupo** le das **solo SU carpeta** (por pendrive o Discord privado). El HUB también instala la suya |
-| `salida/credenciales.txt` | Con todos compartes **solo la clave de `panel`**, que sirve para el dashboard |
-| `salida/ca-private/ca.key` | **NO sale de esta Raspberry. Nunca.** |
+> - Cuando el Learner Lab se apaga, la EC2 se detiene. Las Raspberry **siguen guardando en local** y suben todo cuando el lab vuelve.
+> - Para volver a bajar los paquetes: `bash nube/paquetes.sh`. Para borrar todo, **datos incluidos**: `bash nube/destruir.sh`.
 
 ---
 
-## 4. PARTE B: la Raspberry de cada grupo
+## 4. PARTE B: conectar tu Raspberry a la nube
 
-Recibiste una carpeta con **`ca.crt`** y **`puente.conf`**. Si tu Mosquitto está instalado con `apt`:
+1. Copia **tu** carpeta `paquetes-nube/<tu_grupo>/` dentro de `florasense-dashboard-malla/`, con el nombre `paquete-nube/`.
+   Trae 3 archivos:
+   - `nube.json`: la URL y el token de tu grupo.
+   - `aws-publica.pem`: la clave **pública** de AWS.
+   - `ca.crt`: el certificado para verificar que hablas con **tu** nube y no con un impostor.
+2. Arranca con `--nube`:
+   ```bash
+   node servidor.mjs --grupo grupo-3 --serie /dev/ttyUSB0 --nube paquete-nube
+   ```
+3. En tu dashboard tiene que aparecer **Nube AWS al día**. Si dice *sin conexión*, igual guarda todo y lo reenvía cuando vuelve.
 
-```bash
-sudo mkdir -p /etc/mosquitto/red-grupos
-sudo cp ca.crt /etc/mosquitto/red-grupos/
-sudo cp puente.conf /etc/mosquitto/conf.d/
-sudo sed -i 's#/mosquitto/config/red-grupos/ca.crt#/etc/mosquitto/red-grupos/ca.crt#' /etc/mosquitto/conf.d/puente.conf
-sudo systemctl restart mosquitto
-```
-
-Si tu Mosquitto corre en Docker, sigue [`red-grupos/DETALLE-TECNICO.md`](red-grupos/DETALLE-TECNICO.md) (paso 2).
-
-**La línea `topic`** al final de `puente.conf` manda `iot/v1/devices/<nodo>/telemetry` al hub. Es justo donde publica
-el dashboard con `--mqtt`, así que **no hay que cambiarla**.
-
-**¿Quedó bien?** Pídele al dueño del HUB que corra `docker logs red_grupos_hub`. Tiene que salir
-`New bridge connected ... as puente-<tu_grupo>`. Además, en el dashboard compartido tu grupo aparece como **Puente activo**.
-
-### Para ver los datos de los otros grupos en TU dashboard
-
-Agrega esta línea al final de `puente.conf` y reinicia Mosquitto:
-```
-topic # in 1 red-entrante/ red/
-```
-Los datos de todos llegan a tu Mosquitto local bajo `red-entrante/<grupo>/...`. El dashboard con `--mqtt` los lee de ahí
-y los muestra con el filtro *Otros grupos (hub)*. El hub permite que cada grupo **lea** todo, pero cada grupo **solo puede escribir** lo suyo.
-
-**¿No tienes Raspberry todavía?** Puedes probar desde un PC con `mosquitto-clients` instalado:
-```bash
-./red-grupos/grupo/simular-grupo.sh <IP_DEL_HUB> <tu_grupo> <tu_clave> ca.crt
-```
-Manda datos falsos cada 3 segundos.
+> **La hora de la Raspberry tiene que estar bien.** La nube rechaza lotes con más de 15 minutos de diferencia, para que nadie
+> pueda reenviar un lote viejo capturado. Se arregla con `timedatectl` (NTP activado).
 
 ---
 
-## 5. Ver el dashboard compartido
+## 5. El dashboard de la nube
 
-Cada grupo **sigue usando su propio dashboard**. Además está el dashboard compartido del hub, que muestra a los 3 grupos juntos:
+1. Abre **`https://<IP_de_AWS>`** desde cualquier lugar con internet.
+2. El navegador va a decir **"conexión no segura"**. Es normal: el certificado lo firmó la CA propia de la nube. Entra en *Avanzado → Continuar*.
+3. Usuario y clave de `panel.txt`.
+4. Arriba ves si la **Raspberry de cada grupo está en línea**. Los filtros son los mismos de la Raspberry: grupo, nodo y solo activos.
 
-1. Conéctate a la **misma red** que el HUB.
-2. Abre **`https://<IP_DEL_HUB>:9443`**. Tiene que ser `https`, no `http`.
-3. El navegador va a decir **"conexión no segura"**. **Es normal**: el certificado lo firmó la CA de la red y no una autoridad pública. Entra en *Avanzado → Continuar*.
-4. Usuario **`panel`**, con la clave que te pasó el dueño del HUB.
-5. Es **solo de lectura**: desde ahí nadie puede prender la bomba de otro grupo.
+**Lo que protege la nube** (probado):
+- Un grupo **no puede subir datos a nombre de otro**: tiene que tener el token del otro grupo, y además el sobre va amarrado a su grupo.
+- **Se descartan** las lecturas de nodos de otro grupo.
+- **Se rechazan** los lotes repetidos, los viejos y los alterados aunque sea en 1 bit.
 
 ---
 
@@ -288,21 +223,19 @@ Cada grupo **sigue usando su propio dashboard**. Además está el dashboard comp
 | `stty falló` o `Permission denied` en `/dev/ttyUSB0` | Falta el permiso `dialout`, el puerto es otro o el Monitor Serie está abierto | Haz `usermod -aG dialout`, revisa `ls /dev/ttyUSB*` y cierra Arduino |
 | Tu nodo sale en el grupo `sin-grupo` | El `NOMBRE_NODO` no empieza con `grupo-N` | Usa el nombre de la [tabla](#los-grupos) |
 | Dos nodos salen con el mismo nombre | Repitieron `NOMBRE_NODO` | Usa `-a` y `-b` según la tabla |
-| `not authorised` en el puente | La clave es incorrecta o el paquete es de otro grupo | Usa **tu** carpeta de `paquetes/` |
-| El puente no conecta | La IP del HUB cambió o el firewall bloquea el 8884 | Fija la IP. Si cambió, rehaz `crear-red.sh` (borra `salida/`) |
-| El dashboard compartido no carga | Entraste con `http` o el puerto 9443 está cerrado | Usa `https://...:9443` |
-| El dashboard compartido no muestra datos de tu grupo | El puente está caído o el `topic` no coincide | Revisa el log del HUB y la línea `topic` de `puente.conf` |
+| Dashboard: *Nube AWS sin conexión* | El lab está apagado, no hay internet o el 443 está bloqueado | Revisa que el Learner Lab esté encendido. Mientras tanto se guarda todo en local |
+| La nube responde `fuera de ventana` | La hora de la Raspberry está mal | `sudo timedatectl set-ntp true` |
+| La nube responde `token inválido` | Usas el paquete de otro grupo | Usa **tu** carpeta de `paquetes-nube/` |
+| El paquete es de otro grupo | `--grupo` no coincide con `nube.json` | Usa el mismo grupo en los dos |
 
 ## Reglas de oro
 
 1. **Todas las placas van en el canal 6.**
 2. **Cada nodo lleva un nombre único** (`grupo-X-a` o `grupo-X-b`).
 3. **Cada grupo usa su clave:** `privada.pem` no sale de su Raspberry.
-4. **Nunca subas** `.pem`, `.key`, `salida/` ni claves a GitHub.
+4. **Nunca subas** `.pem`, `paquete-nube/`, `panel.txt` ni tokens a GitHub.
 5. **Cada grupo recibe solo su paquete.**
-6. La **IP del HUB no se cambia** después de correr `crear-red.sh`.
 
 ---
 
-Detalle técnico de la Parte B (seguridad, ACL, tópicos y trampas): [`red-grupos/DETALLE-TECNICO.md`](red-grupos/DETALLE-TECNICO.md) ·
 Instrucciones originales de la malla: [`malla_espnow/LEEME.txt`](malla_espnow/LEEME.txt)

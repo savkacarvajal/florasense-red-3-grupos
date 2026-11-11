@@ -1,5 +1,4 @@
-red-grupos/salida/
-*.pem
-*.key
-config_local.h
 privada.pem
+publica.pem
+*.pem
+config_local.h
