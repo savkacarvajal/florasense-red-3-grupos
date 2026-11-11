@@ -1,65 +1,72 @@
 # Conectividad entre los 3 grupos: guía a prueba de tontos
 
-Esta guía sirve para que **las placas y las Raspberry de los 3 grupos hablen entre sí** y
-todos vean sus datos en **un mismo dashboard**. Ve paso por paso, en orden, sin saltarte nada.
+Esta guía sirve para que **cada grupo junte los datos de sus placas en su propia Raspberry** y
+para que **las 3 Raspberry compartan los datos entre ellas**. Ve paso por paso, en orden, sin saltarte nada.
 Si algo falla, busca el síntoma en [Si algo falla](#si-algo-falla).
 
 ## Los grupos
 
-Usen **exactamente estos nombres** en todo: en el sketch, en `crear-red.sh` y en el dashboard.
+Usen **exactamente estos nombres y canales**. Valen para el sketch, para `crear-red.sh` y para el dashboard.
 
-| Grupo | Integrante de referencia | Nombre que va en todos lados |
-|---|---|---|
-| Grupo 1 | Martín Díaz | `grupo-1` |
-| Grupo 2 | Matías Nonque | `grupo-2` |
-| Grupo 3 | Savka (FloraSense) | `grupo-3` |
+| Grupo | Integrante de referencia | Nombre del grupo | Nodo 1 | Nodo 2 | Canal de su malla |
+|---|---|---|---|---|---|
+| Grupo 1 | Martín Díaz | `grupo-1` | `grupo-1-a` | `grupo-1-b` | `1` |
+| Grupo 2 | Matías Nonque | `grupo-2` | `grupo-2-a` | `grupo-2-b` | `6` |
+| Grupo 3 | Savka (FloraSense) | `grupo-3` | `grupo-3-a` | `grupo-3-b` | `11` |
 
-> **Pendiente:** acordar cuál de las 3 Raspberry es el **HUB**.
+> **Pendiente:** acordar cuál de las 3 Raspberry es el **HUB** (ver [qué es el hub](#qué-es-el-hub)).
 
 ---
 
 ## 0. Lo primero: entiende el dibujo (1 minuto)
 
-Hay **dos formas de conectarse**. Las dos llegan al mismo lado.
+**Cada grupo tiene lo mismo:** 3 NodeMCU (2 nodos y 1 concentrador), una Raspberry y su propio dashboard.
 
 ```
- FORMA A: por radio (ESP-NOW), sin WiFi
- ──────────────────────────────────────
-  NodeMCU grupo-1 ))) NodeMCU grupo-2 ))) NodeMCU grupo-3 ))) CONCENTRADOR ──USB──► Raspberry
-  (cada placa le pasa el mensaje a la siguiente, hasta 3 saltos)
+ PARTE A: dentro de CADA grupo (por radio ESP-NOW, sin WiFi)
+ ────────────────────────────────────────────────────────────
+   NodeMCU nodo-a ))) NodeMCU nodo-b ))) NodeMCU CONCENTRADOR ──USB──► Raspberry del grupo ──► dashboard del grupo
+     PERFIL 0          PERFIL 0            PERFIL 1                  (descifra los datos)
+   (miden y retransmiten)               (solo escucha, no mide)
 
- FORMA B: entre Raspberry, por la red (MQTT con TLS)
- ───────────────────────────────────────────────────
-  Raspberry grupo-1 ─┐
-  Raspberry grupo-2 ─┼──── cifrado TLS, puerto 8884 ────► Raspberry HUB
-  Raspberry grupo-3 ─┘                                       │
-                                                             └── dashboard https://IP_DEL_HUB:9443
-                                                                 (entran los 3 grupos)
+ PARTE B: ENTRE los 3 grupos (por la red, MQTT con TLS)
+ ───────────────────────────────────────────────────────
+   Raspberry grupo-1 ─┐
+   Raspberry grupo-2 ─┼──── cifrado TLS, puerto 8884 ────► Raspberry HUB
+   Raspberry grupo-3 ─┘                                       │
+                                                              └── dashboard compartido https://IP_DEL_HUB:9443
 ```
 
-- **Forma A** = carpeta [`malla_espnow/`](malla_espnow/). Cada grupo sube **el mismo archivo** a su NodeMCU.
-- **Forma B** = carpeta [`red-grupos/`](red-grupos/). Una Raspberry es el **HUB** y las otras se conectan a ella.
+- **Parte A** = carpeta [`malla_espnow/`](malla_espnow/). Los 3 grupos usan **el mismo archivo** y solo cambian 3 líneas.
+- **Parte B** = carpeta [`red-grupos/`](red-grupos/).
+
+### Qué es el hub
+
+El hub es **una de las 3 Raspberry, que hace de punto de encuentro**, como un grupo de WhatsApp.
+En vez de conectar cada grupo con los otros dos (3 conexiones), todos se conectan solo al hub (1 conexión cada uno).
+**No es un aparato extra:** la Raspberry del hub sigue siendo la de su grupo, con su malla y su dashboard.
+Solo necesita estar **prendida** y con **IP fija**.
 
 **Quién hace qué:**
 
-| Persona | Qué hace | Sección |
+| Quién | Qué hace | Sección |
 |---|---|---|
-| Cada grupo | Sube el sketch a su NodeMCU | [1](#1-forma-a-cada-grupo-sube-el-sketch-a-su-nodemcu) |
-| El dueño del concentrador | Sube el sketch con `PERFIL 1` y lo enchufa a la Raspberry | [2](#2-forma-a-el-concentrador-solo-una-persona) |
-| El dueño del HUB | Corre `crear-red.sh` y reparte paquetes | [3](#3-forma-b-la-raspberry-hub-solo-una-persona) |
-| Cada grupo con Raspberry | Instala su paquete | [4](#4-forma-b-cada-raspberry-de-grupo) |
-| Todos | Abren el dashboard | [5](#5-ver-el-dashboard) |
+| Cada grupo | Sube el sketch a sus 2 nodos | [1](#1-parte-a-los-2-nodos-de-cada-grupo) |
+| Cada grupo | Sube el sketch a su concentrador y lo enchufa a su Raspberry | [2](#2-parte-a-el-concentrador-de-cada-grupo) |
+| Solo el dueño del HUB | Corre `crear-red.sh` y reparte los paquetes | [3](#3-parte-b-la-raspberry-hub-solo-un-grupo) |
+| Cada grupo | Instala su paquete en su Raspberry | [4](#4-parte-b-la-raspberry-de-cada-grupo) |
+| Todos | Abren el dashboard compartido | [5](#5-ver-el-dashboard-compartido) |
 
 ---
 
-## 1. FORMA A: cada grupo sube el sketch a su NodeMCU
+## 1. PARTE A: los 2 nodos de cada grupo
 
 ### Lo que necesitas
-- [ ] Una **NodeMCU / ESP8266**. **Un ESP32 NO sirve.**
+- [ ] **NodeMCU / ESP8266.** **Un ESP32 NO sirve.**
 - [ ] Un cable USB **de datos**. Muchos cables solo cargan: si el PC no detecta la placa, cambia el cable.
 - [ ] Arduino IDE instalado.
 
-### Pasos
+### Pasos (repítelos para cada nodo)
 1. **Descarga este repo:** botón verde **Code → Download ZIP** y descomprímelo.
    - La carpeta debe llamarse **`malla_espnow`**, igual que el archivo `malla_espnow.ino`. Si se llama distinto, Arduino no lo abre.
    - **No pongas otro `.ino` dentro de esa carpeta.** Arduino junta todos los `.ino` de la carpeta y la compilación falla.
@@ -69,49 +76,61 @@ Hay **dos formas de conectarse**. Las dos llegan al mismo lado.
 4. **Elige la placa y el puerto:**
    - *Herramientas → Placa* → **NodeMCU 1.0 (ESP-12E Module)**
    - *Herramientas → Puerto* → el de tu placa. Si no sale ninguno, instala el driver **CH340** o **CP2102** (depende de tu placa).
-5. **Cambia SOLO esta línea** (está arriba, línea ~36):
+5. **Cambia SOLO estas 2 líneas** (sácalas de la [tabla de grupos](#los-grupos)):
    ```c
-   #define NOMBRE_NODO     ""        // ← pon aquí el nombre de TU grupo, ej: "grupo-2"
+   #define NOMBRE_NODO     "grupo-3-a"   // línea ~36: el nombre de ESTE nodo
+   #define CANAL           11            // línea ~87: el canal de TU grupo
    ```
-   - Grupo de Martín Díaz → `"grupo-1"` · Grupo de Matías Nonque → `"grupo-2"` · Grupo de Savka → `"grupo-3"`
-   - El nombre tiene que ser **distinto en cada placa**. Usa solo letras, números, `-` y `_`, sin espacios ni tildes.
-   - Ese nombre es el que se verá en el dashboard.
-   - **NO toques nada más**: ni `PERFIL`, ni `CANAL`, ni la clave. Si una placa usa otro canal, queda fuera de la malla.
+   - El **nodo 1** lleva `-a` y el **nodo 2** lleva `-b`. **Nunca repitas un nombre.**
+   - Usa solo letras, números, `-` y `_`, sin espacios ni tildes.
+   - **Los 3 aparatos de un grupo (2 nodos y el concentrador) llevan el MISMO canal.** Cada grupo usa un canal distinto para que su malla no se mezcle con las de los otros.
+   - **Deja `PERFIL` en `0`.**
 6. **Sube el sketch** con la flecha (→) y espera a que diga **"Subido"** o **"Hecho"**.
 7. **Comprueba que funciona** (opcional): *Herramientas → Monitor Serie* a **115200 baudios**. Debe aparecer:
    ```
    === Malla ESP-NOW · nodo de invernadero (solo radio) ===
-   solo radio en el canal 6 ...
+   solo radio en el canal 11 ...        ← el número de TU grupo
    ```
-8. **Déjala encendida** cerca de otra placa o del concentrador. En unos **10 segundos** tu grupo aparece en el dashboard.
+8. **Déjala encendida** cerca de tu otro nodo o del concentrador. Cada nodo retransmite el mensaje del otro, hasta 3 saltos.
 
-> Los datos que manda el nodo son **simulados** (temperatura, humedad, suelo y flujo de agua) porque no tiene sensores conectados.
-> Van **cifrados** (RSA-2048 + AES-256-GCM): las placas que retransmiten no pueden leerlos, solo la Raspberry.
+> Los datos son **simulados** (temperatura, humedad, suelo y flujo de agua) porque no hay sensores conectados.
+> Van **cifrados** (RSA-2048 + AES-256-GCM): ni los nodos que retransmiten ni el concentrador pueden leerlos, solo la Raspberry.
 
 ---
 
-## 2. FORMA A: el concentrador (solo una persona)
+## 2. PARTE A: el concentrador de cada grupo
 
-El concentrador es una NodeMCU que **escucha la malla** y le pasa todo a la Raspberry por USB.
+El concentrador es la **tercera NodeMCU** del grupo. **Escucha la malla** y le pasa todo a la Raspberry por USB. **No mide nada.**
 
 1. Haz los pasos 1 a 4 de arriba.
-2. Cambia `#define PERFIL 0` por **`#define PERFIL 1`**. No hace falta cambiar `NOMBRE_NODO`, porque el concentrador se llama `concentrador` solo.
-3. Súbelo y **conéctalo por USB a la Raspberry** (o al PC que hace de Raspberry).
-4. En la Raspberry corre el puente serie del proyecto de la pasarela: `npm run puente -- <puerto>` (por ejemplo `/dev/ttyUSB0`).
-   - **Cierra el Monitor Serie de Arduino antes.** El puerto no se puede usar en dos programas a la vez.
+2. Cambia estas 2 líneas:
+   ```c
+   #define PERFIL          1      // línea ~46: 1 = concentrador
+   #define CANAL           11     // línea ~87: el MISMO canal que tus 2 nodos
+   ```
+   No hace falta tocar `NOMBRE_NODO`: el concentrador se llama `concentrador` solo.
+3. Súbelo y **conéctalo por USB a la Raspberry de tu grupo**.
+4. En la Raspberry corre el puente serie de la pasarela: `npm run puente -- <puerto>` (por ejemplo `/dev/ttyUSB0`).
+   - **Cierra antes el Monitor Serie de Arduino.** Dos programas no pueden usar el puerto a la vez.
+5. Tus 2 nodos aparecen en el **dashboard de tu grupo** en unos 10 segundos.
+
+> ⚠️ **La clave tiene que calzar.** El sketch trae la clave **pública** de *una* pasarela. Solo la Raspberry que tiene
+> la clave **privada** correspondiente puede descifrar los datos. Si cada grupo corre su propia pasarela, cada uno
+> tiene que pegar **su** clave pública en el sketch (`node pegar-claves.mjs malla_espnow.ino --socio publica-del-servidor.pem`,
+> herramienta del proyecto de la pasarela) **antes** de subirlo a sus 3 placas.
 
 ---
 
-## 3. FORMA B: la Raspberry HUB (solo una persona)
+## 3. PARTE B: la Raspberry HUB (solo un grupo)
 
-**Antes de empezar**, pónganse de acuerdo en dos cosas:
-- [ ] **Cuál Raspberry es el HUB.**
-- [x] **Los nombres de los 3 grupos**: `grupo-1`, `grupo-2` y `grupo-3` (ver [Los grupos](#los-grupos)).
+**Antes de empezar:**
+- [ ] Acordaron **cuál Raspberry es el HUB**.
+- [x] Los nombres de los grupos son `grupo-1`, `grupo-2` y `grupo-3`.
 
-Y en la Raspberry HUB:
-- [ ] Tiene **Docker** instalado (`docker --version` responde).
-- [ ] Tiene una **IP fija**: resérvala en el router o hotspot. **La IP queda grabada en el certificado**, así que si cambia hay que rehacer todo.
-- [ ] Los puertos **8884** y **9443** están abiertos para los demás.
+La Raspberry HUB necesita:
+- [ ] **Docker** instalado (`docker --version` responde).
+- [ ] Una **IP fija**: resérvala en el router o hotspot. **La IP queda grabada en el certificado**, así que si cambia hay que rehacer todo.
+- [ ] Los puertos **8884** y **9443** abiertos para los demás.
 
 Pasos:
 ```bash
@@ -122,20 +141,20 @@ hostname -I                                          # anota la IP de esta Raspb
 docker compose up -d
 ```
 
-Opcional: para que el dashboard muestre nombres más claros, edita `dashboard/config.js` después de correr el script
+Opcional: para que el dashboard compartido muestre nombres más claros, edita `dashboard/config.js`
 (por ejemplo `nombre: "Grupo 1 · Martín Díaz"`). **No cambies el `id`.**
 
 Esto crea la carpeta `salida/`. **Nunca la subas a GitHub** (ya está en `.gitignore`):
 
 | Archivo | Qué hacer con él |
 |---|---|
-| `salida/paquetes/<grupo>/` | Dale a **cada grupo solo SU carpeta** (por pendrive, Discord, etc.) |
-| `salida/credenciales.txt` | Comparte **solo la clave de `panel`** con todos (sirve para el dashboard) |
+| `salida/paquetes/<grupo>/` | A **cada grupo** le das **solo SU carpeta** (por pendrive o Discord privado). El HUB también instala la suya |
+| `salida/credenciales.txt` | Con todos compartes **solo la clave de `panel`**, que sirve para el dashboard |
 | `salida/ca-private/ca.key` | **NO sale de esta Raspberry. Nunca.** |
 
 ---
 
-## 4. FORMA B: cada Raspberry de grupo
+## 4. PARTE B: la Raspberry de cada grupo
 
 Recibiste una carpeta con **`ca.crt`** y **`puente.conf`**. Si tu Mosquitto está instalado con `apt`:
 
@@ -149,8 +168,21 @@ sudo systemctl restart mosquitto
 
 Si tu Mosquitto corre en Docker, sigue [`red-grupos/DETALLE-TECNICO.md`](red-grupos/DETALLE-TECNICO.md) (paso 2).
 
+**Revisa la línea `topic`** al final de `puente.conf`. Tiene que coincidir con el tópico donde **tu** pasarela o
+**tu** dashboard publica los datos. Por defecto viene `iot/v1/devices/<id>/telemetry` (FloraSense). Si el tuyo es otro, ahí mismo hay un ejemplo.
+
 **¿Quedó bien?** Pídele al dueño del HUB que corra `docker logs red_grupos_hub`. Tiene que salir
-`New bridge connected ... as puente-<tu_grupo>`. Además, en el dashboard tu grupo aparece como **Puente activo**.
+`New bridge connected ... as puente-<tu_grupo>`. Además, en el dashboard compartido tu grupo aparece como **Puente activo**.
+
+### Opcional: ver los datos de los otros grupos en TU dashboard
+
+Por defecto tu Raspberry **manda** sus datos al hub pero **no recibe** los de los otros. Si quieres que tu propio
+dashboard muestre a los 3 grupos, agrega esta línea al final de `puente.conf` y reinicia Mosquitto:
+```
+topic # in 1 red-entrante/ red/
+```
+Los datos de todos llegan a tu Mosquitto local bajo `red-entrante/<grupo>/...`. Tu dashboard se suscribe a `red-entrante/#`.
+El hub ya permite que cada grupo **lea** todo, pero cada grupo **solo puede escribir** lo suyo.
 
 **¿No tienes Raspberry todavía?** Puedes probar desde un PC con `mosquitto-clients` instalado:
 ```bash
@@ -160,13 +192,15 @@ Manda datos falsos cada 3 segundos.
 
 ---
 
-## 5. Ver el dashboard
+## 5. Ver el dashboard compartido
+
+Cada grupo **sigue usando su propio dashboard**. Además está el dashboard compartido del hub, que muestra a los 3 grupos juntos:
 
 1. Conéctate a la **misma red** que el HUB.
 2. Abre **`https://<IP_DEL_HUB>:9443`**. Tiene que ser `https`, no `http`.
 3. El navegador va a decir **"conexión no segura"**. **Es normal**: el certificado lo firmó la CA de la red y no una autoridad pública. Entra en *Avanzado → Continuar*.
 4. Usuario **`panel`**, con la clave que te pasó el dueño del HUB.
-5. El dashboard es **solo de lectura**: desde ahí nadie puede prender la bomba de otro grupo.
+5. Es **solo de lectura**: desde ahí nadie puede prender la bomba de otro grupo.
 
 ---
 
@@ -176,22 +210,25 @@ Manda datos falsos cada 3 segundos.
 |---|---|---|
 | Arduino no compila | El core no es la 3.1.2, la placa es un ESP32 o hay otro `.ino` en la carpeta | Instala la versión 3.1.2, usa una NodeMCU y deja un solo `.ino` |
 | No aparece el puerto | El cable solo carga o falta el driver | Cambia el cable o instala el driver CH340/CP2102 |
-| Monitor Serie: `sin respuesta ... reintento` | El concentrador o la Raspberry están apagados, o la placa está muy lejos | Acércate o pon otra placa al medio, porque cada placa retransmite |
-| Dos grupos salen con el mismo nombre | Repitieron `NOMBRE_NODO` | Cada placa necesita un nombre distinto |
-| Una placa no se ve con las otras | Le cambiaron el `CANAL` | Todas las placas van en el canal **6** |
+| Monitor Serie: `sin respuesta ... reintento` | El concentrador o la pasarela están apagados, o la placa está muy lejos | Acerca la placa: el otro nodo retransmite |
+| Un nodo no llega a su concentrador | Su `CANAL` es distinto al del concentrador | Los 3 aparatos del grupo tienen que llevar el canal de la [tabla](#los-grupos) |
+| Aparecen nodos de otro grupo en tu dashboard | Dos grupos usan el mismo canal | Cada grupo usa su canal: 1, 6 u 11 |
+| La Raspberry recibe datos pero no los descifra | La clave pública del sketch es de otra pasarela | Pega **tu** clave pública y vuelve a subir el sketch a las 3 placas |
+| Dos nodos salen con el mismo nombre | Repitieron `NOMBRE_NODO` | Usa `-a` y `-b` según la tabla |
 | `not authorised` en el puente | La clave es incorrecta o el paquete es de otro grupo | Usa **tu** carpeta de `paquetes/` |
 | El puente no conecta | La IP del HUB cambió o el firewall bloquea el 8884 | Fija la IP. Si cambió, rehaz `crear-red.sh` (borra `salida/`) |
-| El dashboard no carga | Entraste con `http` o el puerto 9443 está cerrado | Usa `https://...:9443` |
-| El dashboard carga pero no muestra datos | El puente está caído o el `topic` no coincide | Revisa el log del HUB y la línea `topic` de `puente.conf` |
+| El dashboard compartido no carga | Entraste con `http` o el puerto 9443 está cerrado | Usa `https://...:9443` |
+| El dashboard compartido no muestra datos de tu grupo | El puente está caído o el `topic` no coincide | Revisa el log del HUB y la línea `topic` de `puente.conf` |
 
 ## Reglas de oro
 
-1. **Mismo archivo, mismo canal y nombre distinto** en todas las placas.
-2. **Nunca subas** `.pem`, `.key`, `salida/` ni claves a GitHub.
-3. **Cada grupo recibe solo su paquete.**
-4. La **IP del HUB no se cambia** después de correr `crear-red.sh`.
+1. **Por grupo, mismo canal en sus 3 placas.** Entre grupos, canales distintos.
+2. **Cada nodo lleva un nombre único** (`grupo-X-a` o `grupo-X-b`).
+3. **Nunca subas** `.pem`, `.key`, `salida/` ni claves a GitHub.
+4. **Cada grupo recibe solo su paquete.**
+5. La **IP del HUB no se cambia** después de correr `crear-red.sh`.
 
 ---
 
-Detalle técnico de la Forma B (seguridad, ACL, tópicos y trampas): [`red-grupos/DETALLE-TECNICO.md`](red-grupos/DETALLE-TECNICO.md) ·
+Detalle técnico de la Parte B (seguridad, ACL, tópicos y trampas): [`red-grupos/DETALLE-TECNICO.md`](red-grupos/DETALLE-TECNICO.md) ·
 Instrucciones originales de la malla: [`malla_espnow/LEEME.txt`](malla_espnow/LEEME.txt)
