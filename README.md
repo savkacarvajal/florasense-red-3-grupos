@@ -12,8 +12,8 @@ Usen **exactamente estos nombres**. Valen para el sketch, para la Raspberry y pa
 | Grupo | Integrante de referencia | Nombre del grupo | Nodo 1 | Nodo 2 |
 |---|---|---|---|---|
 | Grupo 1 | Martín Díaz | `grupo-1` | `grupo-1-a` | `grupo-1-b` |
-| Grupo 2 | Matías Nonque | `grupo-2` | `grupo-2-a` | `grupo-2-b` |
-| Grupo 3 | Savka (FloraSense) | `grupo-3` | `grupo-3-a` | `grupo-3-b` |
+| Grupo 2 | Savka (FloraSense) | `grupo-2` | `grupo-2-a` | `grupo-2-b` |
+| Grupo 3 | Matías Nonque | `grupo-3` | `grupo-3-a` | `grupo-3-b` |
 
 El dashboard separa los datos de cada grupo **por el nombre del nodo**: todo lo que empieza con `grupo-1` es del grupo 1.
 Por eso el nombre se respeta al pie de la letra.
