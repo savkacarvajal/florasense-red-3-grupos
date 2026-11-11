@@ -4,6 +4,18 @@ Esta guía sirve para que **las placas y las Raspberry de los 3 grupos hablen en
 todos vean sus datos en **un mismo dashboard**. Ve paso por paso, en orden, sin saltarte nada.
 Si algo falla, busca el síntoma en [Si algo falla](#si-algo-falla).
 
+## Los grupos
+
+Usen **exactamente estos nombres** en todo: en el sketch, en `crear-red.sh` y en el dashboard.
+
+| Grupo | Integrante de referencia | Nombre que va en todos lados |
+|---|---|---|
+| Grupo 1 | Martín Díaz | `grupo-1` |
+| Grupo 2 | Matías Nonque | `grupo-2` |
+| Grupo 3 | Savka (FloraSense) | `grupo-3` |
+
+> **Pendiente:** acordar cuál de las 3 Raspberry es el **HUB**.
+
 ---
 
 ## 0. Lo primero: entiende el dibujo (1 minuto)
@@ -61,6 +73,7 @@ Hay **dos formas de conectarse**. Las dos llegan al mismo lado.
    ```c
    #define NOMBRE_NODO     ""        // ← pon aquí el nombre de TU grupo, ej: "grupo-2"
    ```
+   - Grupo de Martín Díaz → `"grupo-1"` · Grupo de Matías Nonque → `"grupo-2"` · Grupo de Savka → `"grupo-3"`
    - El nombre tiene que ser **distinto en cada placa**. Usa solo letras, números, `-` y `_`, sin espacios ni tildes.
    - Ese nombre es el que se verá en el dashboard.
    - **NO toques nada más**: ni `PERFIL`, ni `CANAL`, ni la clave. Si una placa usa otro canal, queda fuera de la malla.
@@ -93,7 +106,7 @@ El concentrador es una NodeMCU que **escucha la malla** y le pasa todo a la Rasp
 
 **Antes de empezar**, pónganse de acuerdo en dos cosas:
 - [ ] **Cuál Raspberry es el HUB.**
-- [ ] **Los nombres de los 3 grupos** (ej: `florasense grupo2 grupo3`), sin espacios.
+- [x] **Los nombres de los 3 grupos**: `grupo-1`, `grupo-2` y `grupo-3` (ver [Los grupos](#los-grupos)).
 
 Y en la Raspberry HUB:
 - [ ] Tiene **Docker** instalado (`docker --version` responde).
@@ -105,9 +118,12 @@ Pasos:
 git clone https://github.com/savkacarvajal/florasense-red-3-grupos.git
 cd florasense-red-3-grupos/red-grupos
 hostname -I                                          # anota la IP de esta Raspberry
-./crear-red.sh <IP_DEL_HUB> florasense grupo2 grupo3 # usa los nombres que acordaron
+./crear-red.sh <IP_DEL_HUB> grupo-1 grupo-2 grupo-3 # en este orden: fija el color de cada grupo
 docker compose up -d
 ```
+
+Opcional: para que el dashboard muestre nombres más claros, edita `dashboard/config.js` después de correr el script
+(por ejemplo `nombre: "Grupo 1 · Martín Díaz"`). **No cambies el `id`.**
 
 Esto crea la carpeta `salida/`. **Nunca la subas a GitHub** (ya está en `.gitignore`):
 
