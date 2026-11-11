@@ -57,7 +57,7 @@ Por eso el nombre se respeta al pie de la letra.
 | Cada grupo | Sube el sketch a su concentrador, lo enchufa a su Raspberry y abre el dashboard | [2](#2-parte-a-el-concentrador-y-el-dashboard-de-cada-grupo) |
 | Solo una persona | Crea la nube en AWS y reparte los paquetes | [3](#3-parte-b-la-nube-aws-solo-una-persona) |
 | Cada grupo | Conecta su Raspberry a la nube con su paquete | [4](#4-parte-b-conectar-tu-raspberry-a-la-nube) |
-| Solo el grupo de Savka | Abre el dashboard de la nube | [5](#5-el-dashboard-de-la-nube) |
+| El grupo de Savka (Savka y sus compañeros) | Abre el dashboard de la nube | [5](#5-el-dashboard-de-la-nube) |
 
 ---
 
@@ -166,7 +166,7 @@ Lo hace **una sola persona** desde su AWS Academy Learner Lab. El código es pri
 5. Espera unos **8 a 10 minutos**. Al final muestra la URL `https://<IP>`.
 6. **Actions → Download file** → `/home/cloudshell-user/paquetes-nube.zip`.
 7. A cada grupo le das **solo su carpeta** `paquetes-nube/<grupo>/`. Con ella su Raspberry **sube** datos, pero no puede ver el panel.
-   **`panel.txt` no se comparte**: el dashboard de la nube es solo del grupo de Savka.
+   **`panel.txt` es solo del grupo de Savka**: Savka se lo pasa a sus compañeros de grupo por mensaje privado, no a los otros grupos.
 
 Lo que crea en AWS:
 - **S3** cifrado con **AES-256**, sin acceso público y solo por HTTPS. Ahí queda cada lote en `lecturas/fecha=AAAA-MM-DD/grupo=<grupo>/`.
@@ -201,7 +201,7 @@ Lo que crea en AWS:
 
 1. Abre **`https://<IP_de_AWS>`** desde cualquier lugar con internet.
 2. El navegador va a decir **"conexión no segura"**. Es normal: el certificado lo firmó la CA propia de la nube. Entra en *Avanzado → Continuar*.
-3. Usuario y clave de `panel.txt`. **Es privado**: solo lo tiene el grupo de Savka.
+3. Usuario y clave de `panel.txt`. **Es privado**: lo tienen Savka y sus compañeros de grupo. Nunca lo subas a GitHub ni lo pegues en un chat compartido.
 4. Arriba ves si la **Raspberry de cada grupo está en línea**. Los filtros son los mismos de la Raspberry: grupo, nodo y solo activos.
 
 **Lo que protege la nube** (probado):
